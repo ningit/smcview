@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Strategy model checker result</title>
+	<meta charset="utf8" />
+	<link rel="stylesheet" type="text/css" href="smcview.css">
+	<script src="smcgraph.js"></script>
+</head>
+<body>
+<header style="background-color: {{if .Holds}}green{{else}}red{{end}};">
+	<b style="font-size: 120%;">Strategy-aware model checker output</b>
+	<table class="headerTable">
+		<tr>
+			<td>Initial term:</td>
+			<td>{{.Initial}}</td>
+		</tr>
+		<tr>
+			<td>LTL formula:</td>
+			<td>{{.Formula}}</td>
+		</tr>
+	</table>
+</header>
+
+<div style="margin: 1ex; padding: 0; text-align: center; flex-grow: 1;">
+	<div class="statePopup" id="state-popup">
+	<table>
+		<tr><td>Term:</td><td id="popup-term"></td></tr>
+		<tr><td>Strategy:</td><td id="popup-strat"></td></tr>
+	</table>
+	</div>
+	<svg id="canvas">
+		<defs>
+			<marker orient="auto" id="arrowh" refY="0" markerWidth="10" markerHeight="10" refX="5" viewBox="-0.2 -8 5.6 16">
+				<path stroke="black" fill="none" stroke-width="1.5" d="M0,-5L5,0L0,5"></path>
+			</marker>
+		</defs>
+		<g id="graph"></g>
+		</svg>
+</div>
+<div class="actionbar">
+	<a href="/get?file=dump">Save dump</a>
+	 · <a href="/get?file=autdot">Save automaton graph</a>
+</div>
+<script>
+	function initCanvas() {
+		var canvas = document.getElementById('canvas')
+		var graph = document.getElementById('graph')
+		graph.db = {holds: {{.Holds}}, numberStates: {{.NumberOfStates}}, path: {{.Path}}, cycle: {{.Cycle}}}
+
+		graph.db.states = new Map()
+		{{range $key, $value := .States}}graph.db.states[{{$key}}] = {solution: {{.Solution}}, term: {{.Term}}, strategy: {{.Strategy}}, successors: [{{range .Transitions}} {target: {{.Target}}, type: {{.Type}}, label: {{.Label}}}, {{end}}]}
+		{{end}}
+		window.addEventListener('load', function () { paintCanvas(canvas, graph) })
+	}
+	initCanvas()
+</script>
+</body>
+</html>

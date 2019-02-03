@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Strategy model checking in progress</title>
+	<meta charset="utf8" />
+	<link rel="stylesheet" type="text/css" href="smcview.css">
+	<script src="smcview.js"></script>
+</head>
+<body onload="waitModelChecker()">
+<header>
+	<b style="font-size: 120%;">Strategy-aware model checker</b>
+</header>
+
+<div class="mainbox">
+	<div style="text-align: center; margin: auto;">
+		<span style="font-size: 150%;">Maude is working. Please wait...</span>
+
+		<table class="sumtable">
+			<tr>
+				<td>File:</td>
+				<td>{{.File}}</td>
+			</tr>
+			<tr>
+				<td>Module:</td>
+				<td>{{.Module}}</td>
+			</tr>
+			<tr>
+				<td>Initial term:</td>
+				<td>{{.InitialTerm}}</td>
+			</tr>
+			<tr>
+				<td>LTL formula:</td>
+				<td>{{.LtlFormula}}</td>
+			</tr>
+			<tr>
+				<td>Strategy:</td>
+				<td>{{.Strategy}}</td>
+			</tr>
+			<tr>
+				<td>Starting time:</td>
+				<td>{{.StartTime}}</td>
+			</tr>
+		</table>
+
+		The page will be reloaded when the operation is completed, or you can <a href="/cancel">cancel</a> it.
+	</div>
+</div>
+</body>
+</html>
