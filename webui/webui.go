@@ -207,10 +207,9 @@ func (s *WebUi) translatePath(url string) string {
 	}
 }
 
-func (s *WebUi) handleView(writer http.ResponseWriter, request *http.Request) {
+func (s *WebUi) handleView(dumpfile string, writer http.ResponseWriter, request *http.Request) {
 
-	var givendump = request.FormValue("dumpfile")
-	var hostpath = s.translatePath(givendump)
+	var hostpath = s.translatePath(dumpfile)
 
 	if hostpath == "" {
 		http.Error(writer, "Not found", 404)
@@ -221,7 +220,7 @@ func (s *WebUi) handleView(writer http.ResponseWriter, request *http.Request) {
 
 	dump, _ := smcdump.Read(hostpath)
 	if dump == nil {
-		http.Error(writer, "The given file \""+givendump+"\" is not a valid dump.", 400)
+		http.Error(writer, "The given file \""+dumpfile+"\" is not a valid dump.", 400)
 		return
 	}
 
@@ -642,7 +641,7 @@ func (s *WebUi) handleMain(writer http.ResponseWriter, request *http.Request) {
 
 	// If the dumpfile parameter is given, we show that dumpfile
 	if givendump != "" {
-		s.handleView(writer, request)
+		s.handleView(givendump, writer, request)
 		return
 	}
 
@@ -654,7 +653,7 @@ func (s *WebUi) handleMain(writer http.ResponseWriter, request *http.Request) {
 			log.Fatal(err)
 		}
 	case completed:
-		s.handleView(writer, request)
+		s.handleView("tmp:0", writer, request)
 	default:
 		s.serveAsset(writer, request, "select.htm")
 	}
