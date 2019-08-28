@@ -8,6 +8,7 @@ import (
 	"github.com/ningit/smcview/grapher"
 	"github.com/ningit/smcview/maude"
 	"github.com/ningit/smcview/smcdump"
+	"github.com/ningit/smcview/util"
 	"github.com/ningit/smcview/webui"
 	"io"
 	"log"
@@ -24,6 +25,8 @@ const (
  * without arguments, to starts the web interface, or
  * with a single argument, being the path of an existing model checker dump.
 The argument must be provided after all flags. Use -help to get information about them.`
+	maudeNotAvailable = `No strategy-enabled version of Maude was found.
+Its path can be specified using the -maudecmd flag or the SMAUDE environment variable.`
 )
 
 func underRoot(rootpath, otherpath string) bool {
@@ -31,15 +34,19 @@ func underRoot(rootpath, otherpath string) bool {
 	return strings.HasPrefix(otherpath, rootpath)
 }
 
-func processDump(fpath, graphMode string, toPdf bool) {
+func processDump(fpath, graphMode, simplifierOpName string, maudec *maude.Client, toPdf bool) {
 	var dump, err = smcdump.Read(fpath)
 	if dump == nil {
 		log.Fatal(err)
 	}
 
+	// Creates a simplifier for the state terms
+	// (a dummy one if simplifierOpName is empty)
+	var simplifier = util.CreateSimplifier(simplifierOpName, maudec)
+
 	// Shows the basic information about the dump
 	fmt.Printf("     LTL formula:  %s\n", dump.LtlFormula())
-	fmt.Printf("    Initial term:  %s\n", dump.InitialTerm())
+	fmt.Printf("    Initial term:  %s\n", simplifier.Simplify(dump.InitialTerm()))
 	fmt.Printf("Number of states:  %d\n", dump.NumberOfStates())
 	fmt.Printf("           Holds:  %v\n", dump.PropertyHolds())
 	if !dump.PropertyHolds() {
@@ -58,7 +65,7 @@ func processDump(fpath, graphMode string, toPdf bool) {
 		default: fmt.Printf("Unknown graph option '%s'. Graph output will be skipped.\n", graphMode) ; return
 	}
 
-	var grph = grapher.MakeGrapher(graphOpt)
+	var grph = grapher.MakeGrapher(graphOpt, simplifier)
 
 	// Path prefix for the generated DOT or PDF files that will be
 	// written in the current directory
@@ -120,34 +127,31 @@ func processDump(fpath, graphMode string, toPdf bool) {
 	dump.Close()
 }
 
-func startServer(port int, verbose bool, address, maudePath, sourcedir, rootdir string) {
-	// Tries to find Maude (except if its path was provided) and checks
-	// whether the found version supports strategies
+func checkForMaude(maudePath string) (string, string) {
 	var maudeVersion string
 
+	// Tries to find Maude in the system and checks whether
+	// it supports strategies
 	if maudePath == "" {
 		maudePath, maudeVersion = maude.LocateMaude()
 
-		if maudePath == "" {
-			log.Print("no strategy-enabled version of Maude was found")
-		}
-
 	} else {
+		// Checks whether the given Maude path exists and supports strategies
 		maudeVersion = maude.MaudeVersion(maudePath)
 
 		if !strings.Contains(maudeVersion, "+strat") {
 			log.Print("the given Maude path does not point to Maude or to a wrong version '", maudeVersion, "'")
+			maudePath = ""
 		}
 	}
 
-	if verbose {
-		println("Maude:", maudePath)
-		println("Maude version:", maudeVersion)
-	}
+	return maudePath, maudeVersion
+}
 
+func startServer(port int, verbose bool, maudec *maude.Client, address, sourcedir, rootdir string) {
 	// Sets up the web interface by later fixing the port address and
 	// relevant directories
-	var srv = webui.InitWebUi(maudePath, assets)
+	var srv = webui.InitWebUi(maudec, assets)
 	if srv == nil {
 		log.Fatal("the web interface cannot be initializated")
 	}
@@ -201,9 +205,9 @@ func startServer(port int, verbose bool, address, maudePath, sourcedir, rootdir 
 func main() {
 	// Parses command line arguments
 	var (
-		verbose, graphPdf                                 bool
-		port                                              int
-		address, maudePath, sourcedir, rootdir, graphMode string
+		verbose, graphPdf                                             bool
+		port                                                          int
+		address, maudePath, sourcedir, rootdir, graphMode, simplifier string
 	)
 
 	flag.IntVar(&port, "port", 1234, "server listening `port`")
@@ -214,6 +218,7 @@ func main() {
 	flag.StringVar(&rootdir, "rootdir", "", "restrict access to the filesystem to a given `directory`")
 	flag.BoolVar(&graphPdf, "pdf", false, "generate PDF instead of DOT files (GraphViz is required)")
 	flag.StringVar(&graphMode, "gopt", "legend", "choose how state labels are printed in DOT graphs (among legend, term, strat, short)")
+	flag.StringVar(&simplifier, "simplifier", "", "simplifies the model terms by a `function` defined in smcview-simpl.maude")
 
 	// Usage information when -help is requested
 	flag.Usage = func() {
@@ -223,17 +228,36 @@ func main() {
 
 	flag.Parse()
 
-	if nargs := flag.NArg(); nargs > 1 {
-		// There are too much command line parameter, an explanation is printed
+	// Number of positional arguments: there must be one, the name of a
+	// model checker dump to be processed, or zero to start the server.
+	var nargs = flag.NArg()
+
+	// Too many command line arguments, an explanation is printed
+	if nargs > 1 {
 		println(badCommandLine)
-		return
-	} else if nargs == 1 {
-		// When a single argument is provided, it must be the path of a dump for
-		// which the automaton and counterexample graph will be generated
-		processDump(flag.Arg(0), graphMode, graphPdf)
 		return
 	}
 
-	// Otherwise, we start the server
-	startServer(port, verbose, address, maudePath, sourcedir, rootdir)
+	// Inits an instance of the Maude interpreter, only when required
+	var maudec *maude.Client = nil
+
+	if simplifier != "" || nargs == 0 {
+		if maudePath, maudeVersion := checkForMaude(maudePath); maudePath != "" {
+			maudec = maude.InitMaude(maudePath)
+
+			if verbose {
+				println("Maude:", maudePath)
+				println("Maude version:", maudeVersion)
+			}
+		} else {
+			println(maudeNotAvailable)
+			return
+		}
+	}
+
+	if nargs == 1 {
+		processDump(flag.Arg(0), graphMode, simplifier, maudec, graphPdf)
+	} else {
+		startServer(port, verbose, maudec, address, sourcedir, rootdir)
+	}
 }

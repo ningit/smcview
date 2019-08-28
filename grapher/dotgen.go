@@ -32,11 +32,12 @@ type Grapher struct {
 	gopt       GraphOpt
 	seenTerms  map[int32]struct{}
 	seenStrats map[int32]struct{}
+	simplifier util.TermSimplifier
 }
 
 // MakeGrapher initializes a grapher.
-func MakeGrapher(gopt GraphOpt) Grapher {
-	return Grapher{gopt, make(map[int32]struct{}), make(map[int32]struct{})}
+func MakeGrapher(gopt GraphOpt, termSimplifier util.TermSimplifier) Grapher {
+	return Grapher{gopt, make(map[int32]struct{}), make(map[int32]struct{}), termSimplifier}
 }
 
 // Clean removes the grapher cache and returns the grapher to its original state.
@@ -49,7 +50,7 @@ func (g *Grapher) generateLegend(writer io.Writer, dump smcdump.SmcDump) {
 	io.WriteString(writer, "\n\tlegendTerms "+legendBegin)
 
 	for key, _ := range g.seenTerms {
-		fmt.Fprintf(writer, legendElem, key, util.CleanHtmlString(dump.GetString(key)))
+		fmt.Fprintf(writer, legendElem, key, util.CleanHtmlString(g.simplifier.Simplify(dump.GetString(key))))
 	}
 
 	io.WriteString(writer, legendEnd+"\n\tlegendStrats "+legendBegin)
@@ -136,7 +137,7 @@ func (g *Grapher) graphState(writer io.Writer, dump smcdump.SmcDump, stateNr, ta
 	case Short:
 		fmt.Fprintf(writer, "(%d, %d)\"", state.Term, state.Strategy)
 	case Term:
-		io.WriteString(writer, util.CleanEscapeString(dump.GetString(state.Term))+"\"")
+		io.WriteString(writer, util.CleanEscapeString(g.simplifier.Simplify(dump.GetString(state.Term)))+"\"")
 	case Strat:
 		io.WriteString(writer, util.CleanEscapeString(dump.GetString(state.Strategy))+"\"")
 	}

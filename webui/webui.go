@@ -71,7 +71,7 @@ type WebUi struct {
 	InitialDir string
 }
 
-func InitWebUi(maudePath string, assets http.FileSystem) *WebUi {
+func InitWebUi(maudec *maude.Client, assets http.FileSystem) *WebUi {
 	// Loads HTML templates
 	viewTmpl, err := vfstemplate.ParseFiles(assets, nil, "result.htm")
 	if viewTmpl == nil {
@@ -91,8 +91,7 @@ func InitWebUi(maudePath string, assets http.FileSystem) *WebUi {
 
 	workingDir, _ := os.Getwd()
 
-	// Inits Maude and sets the dump path inside the temporary directory
-	var maudec = maude.InitMaude(maudePath)
+	// Set Maude's dump path inside the temporary directory
 	maudec.SetSmcOutput(filepath.Join(tempDir, "0"))
 
 	var webui = &WebUi{
@@ -674,7 +673,7 @@ func (s *WebUi) handleGet(writer http.ResponseWriter, request *http.Request) {
 			}
 		case "autdot" :
 			// Generates the automaton graph (it could be cached) in DOT format
-			var grph = grapher.MakeGrapher(grapher.Legend)
+			var grph = grapher.MakeGrapher(grapher.Legend, util.CreateDummySimplifier())
 			var dump, err = smcdump.Read(s.sessions.dumpfile)
 			if err != nil {
 				http.Error(writer, "Not found", 404) ; return
