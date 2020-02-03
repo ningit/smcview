@@ -1,0 +1,92 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v*'
+jobs:
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Set up Go 1.13
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.13
+      id: go
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    - name: Get dependencies
+      run: |
+        go get -v -t -d ./...
+
+    - name: Generate assets
+      run: |
+        go generate
+
+    - name: Build for Linux
+      run: |
+        go build -ldflags="-s -w" -v .
+        tar -c smcview | gzip --best > smcview-linux64.tar.gz
+
+    - name: Build for Mac
+      run: |
+        go build -ldflags="-s -w" -v .
+        tar -c smcview | gzip --best > smcview-darwin64.tar.gz
+      env:
+        GOOS: darwin
+        GOARCH: amd64
+
+    - name: Build for Windows
+      run: |
+        go build -ldflags="-s -w" -v
+        zip smcview-windows64.zip smcview.exe
+      env:
+        GOOS: windows
+        GOARCH: amd64
+
+    - name: Create release
+      id: create_release
+      uses: actions/create-release@v1.0.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        body: Compiled binaries for Linux, Mac and Windows.
+        draft: false
+        prerelease: false
+
+    - name: Upload for Linux
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./smcview-linux64.tar.gz
+        asset_name: smcview-linux64.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload for Mac
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./smcview-darwin64.tar.gz
+        asset_name: smcview-darwin64.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload for Windows
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./smcview-windows64.zip
+        asset_name: smcview-windows64.zip
+        asset_content_type: application/zip
+
