@@ -25,7 +25,7 @@ const (
  * without arguments, to starts the web interface, or
  * with a single argument, being the path of an existing model checker dump.
 The argument must be provided after all flags. Use -help to get information about them.`
-	maudeNotAvailable = `No strategy-enabled version of Maude was found.
+	maudeNotAvailable = `No version of Maude with support for strategy model-checking was found.
 Its path can be specified using the -maudecmd flag or the SMAUDE environment variable.`
 )
 

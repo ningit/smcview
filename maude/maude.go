@@ -279,14 +279,14 @@ func LocateMaude() (string, string) {
 }
 
 // CheckMaude checks that the executable in path is a Maude
-// interpreter with strategy support.
+// interpreter with strategy model-checking support.
 func checkMaude(path string) (bool, string) {
 	fileinfo, _ := os.Stat(path)
 
 	if fileinfo != nil && !fileinfo.IsDir() {
 		var version = MaudeVersion(path)
 
-		if strings.Contains(version, "+strat") {
+		if strings.Contains(version, "+smc") || strings.Contains(version, "+strat") {
 			return true, version
 		}
 	}

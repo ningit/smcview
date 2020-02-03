@@ -38,7 +38,8 @@ func (c *Client) Parse(term, sort string) ParseResult {
 	defer c.Select(module)
 
 	// Tokenize the given term
-	result := c.ReduceIn("LEXICAL", "tokenize(\""+term+"\")")
+	// (backslashes are escaped since we are making a string literal)
+	result := c.ReduceIn("LEXICAL", "tokenize(\""+strings.ReplaceAll(term, "\\", "\\\\")+"\")")
 
 	if !result.Ok {
 		return ParseResult{Type: GenError}
@@ -89,8 +90,8 @@ func (c *Client) StratParse(expr string) ParseResult {
 	}
 
 	// Parse the tokenized expression in the original module
-	result = c.ReduceIn("META-LEVEL", "metaStratParse(upModule('"+module+
-		", false), "+result.Term+")")
+	result = c.ReduceIn("META-LEVEL", "metaParseStrategy(upModule('"+module+
+		", false), none, "+result.Term+")")
 
 	if !result.Ok {
 		return ParseResult{Type: GenError}
